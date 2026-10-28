@@ -4,6 +4,8 @@ import type {
   JoinResult,
   Room,
   RoomBackend,
+  RoomMessage,
+  RoomNotes,
   RoomWithSeats,
   SeatClaim,
 } from '@/types/room'
@@ -275,6 +277,7 @@ export class DemoRoomBackend implements RoomBackend {
     }
 
     const id = generateRoomId()
+    const now = this.clock()
     const room: DemoRoom = {
       id,
       name,
@@ -284,7 +287,9 @@ export class DemoRoomBackend implements RoomBackend {
       creatorName: user.displayName,
       maxCapacity: input.maxCapacity,
       status: 'open',
-      createdAt: this.clock(),
+      createdAt: now,
+      durationMinutes: input.durationMinutes,
+      expiresAt: input.durationMinutes ? now + input.durationMinutes * 60 * 1000 : undefined,
       participants: {},
       seats: {},
     }
@@ -409,6 +414,75 @@ export class DemoRoomBackend implements RoomBackend {
         this.emitRoom(roomId)
       }
     })
+  }
+
+  private messages = new Map<string, RoomMessage[]>()
+  private notes = new Map<string, RoomNotes>()
+  private messageListeners = new Map<string, Set<() => void>>()
+  private notesListeners = new Map<string, Set<() => void>>()
+
+  async sendMessage(roomId: string, message: { text: string; uid: string; displayName: string }): Promise<void> {
+    let list = this.messages.get(roomId)
+    if (!list) {
+      list = []
+      this.messages.set(roomId, list)
+    }
+    const newMsg: RoomMessage = {
+      id: generateRoomId(),
+      uid: message.uid,
+      displayName: message.displayName,
+      text: message.text.trim(),
+      timestamp: this.clock(),
+    }
+    list.push(newMsg)
+    this.messageListeners.get(roomId)?.forEach((l) => l())
+  }
+
+  subscribeMessages(roomId: string, listener: (messages: RoomMessage[]) => void): () => void {
+    const emit = () => listener([...(this.messages.get(roomId) ?? [])])
+    emit()
+    let set = this.messageListeners.get(roomId)
+    if (!set) {
+      set = new Set()
+      this.messageListeners.set(roomId, set)
+    }
+    set.add(emit)
+    return () => {
+      set?.delete(emit)
+    }
+  }
+
+  async saveNotes(roomId: string, content: string, user: { uid: string; displayName: string }): Promise<void> {
+    const note: RoomNotes = {
+      content,
+      updatedAt: this.clock(),
+      updatedBy: user.displayName,
+    }
+    this.notes.set(roomId, note)
+    this.notesListeners.get(roomId)?.forEach((l) => l())
+  }
+
+  subscribeNotes(roomId: string, listener: (notes: RoomNotes | null) => void): () => void {
+    const emit = () => listener(this.notes.get(roomId) ?? null)
+    emit()
+    let set = this.notesListeners.get(roomId)
+    if (!set) {
+      set = new Set()
+      this.notesListeners.set(roomId, set)
+    }
+    set.add(emit)
+    return () => {
+      set?.delete(emit)
+    }
+  }
+
+  async setGoal(roomId: string, uid: string, goal: string): Promise<void> {
+    const room = this.rooms.get(roomId)
+    if (room && room.participants[uid]) {
+      room.participants[uid].goal = goal.trim()
+      this.save()
+      this.emitRoom(roomId)
+    }
   }
 
   /** Test helper: force an error path without touching private state. */

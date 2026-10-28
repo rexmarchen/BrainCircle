@@ -6,18 +6,23 @@ import {
   CalendarClock,
   DoorClosed,
   DoorOpen,
+  FileText,
   Link2,
   LogOut,
+  MessageSquare,
   Radio,
   ServerCrash,
   ShieldCheck,
+  Target,
   Users,
 } from 'lucide-react'
 import { useAuth } from '@/app/providers/AuthProvider'
+import { useToast } from '@/app/providers/ToastProvider'
 import { useConnectionStatus } from '@/hooks/useConnectionStatus'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useRoom } from '@/hooks/useRooms'
 import { useRoomMembership } from '@/hooks/useRoomMembership'
+import { roomBackend } from '@/services'
 import {
   availabilityLabel,
   isRoomFull,
@@ -32,6 +37,9 @@ import { ConfirmDialog } from '@/components/ui/Dialog'
 import { Alert, Card, EmptyState } from '@/components/ui/Feedback'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { ParticipantList } from '@/components/rooms/ParticipantList'
+import { RoomChat } from '@/components/rooms/RoomChat'
+import { RoomNotes } from '@/components/rooms/RoomNotes'
+import { RoomExpiryTimer } from '@/components/rooms/RoomExpiryTimer'
 import { ConnectionPill, CopyLinkButton } from '@/components/rooms/RoomActions'
 import { formatRelativeTime } from '@/utils/format'
 import { loginRedirect } from '@/utils/navigation'
@@ -41,11 +49,35 @@ export function RoomPage() {
   const { roomId } = useParams<{ roomId: string }>()
   const { room, loading, error, refresh } = useRoom(roomId)
   const { user } = useAuth()
+  const toast = useToast()
   const connection = useConnectionStatus()
   const membership = useRoomMembership({ room, user, online: connection.online })
   const [leaveOpen, setLeaveOpen] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
   const autoJoinAttempted = useRef(false)
+  const [activeTab, setActiveTab] = useState<'chat' | 'notes' | 'participants'>('chat')
+  const [myGoal, setMyGoal] = useState('')
+  const [goalSaving, setGoalSaving] = useState(false)
+
+  useEffect(() => {
+    if (room && user && room.participants[user.uid]?.goal) {
+      setMyGoal(room.participants[user.uid].goal ?? '')
+    }
+  }, [room, user])
+
+  const handleSaveGoal = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (!room || !user || !membership.isMember) return
+    setGoalSaving(true)
+    try {
+      await roomBackend.setGoal(room.id, user.uid, myGoal)
+      toast.success('Focus goal updated')
+    } catch {
+      toast.error('Could not update goal')
+    } finally {
+      setGoalSaving(false)
+    }
+  }
 
   useDocumentTitle(room ? room.name : 'Study room')
 
@@ -338,30 +370,106 @@ export function RoomPage() {
       ) : null}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 sm:px-6">
-            <div>
-              <h2 className="text-base font-bold text-ink">In this circle</h2>
-              <p className="mt-0.5 text-xs text-muted">
-                {count === 0
-                  ? 'Waiting for the first member.'
-                  : `${count} ${count === 1 ? 'student is' : 'students are'} here right now.`}
-              </p>
+        <div className="space-y-4 lg:col-span-2">
+          {isMember ? (
+            <form
+              onSubmit={handleSaveGoal}
+              className="flex items-center gap-2 rounded-2xl border border-brand-200 bg-brand-50/70 p-3 sm:px-4 shadow-sm"
+            >
+              <Target className="size-4 shrink-0 text-brand-600" />
+              <input
+                type="text"
+                value={myGoal}
+                onChange={(e) => setMyGoal(e.target.value)}
+                placeholder="Set your focus goal for this session (e.g. Solving 5 LeetCode graphs)…"
+                maxLength={140}
+                className="flex-1 bg-transparent text-xs font-semibold text-ink placeholder:text-muted focus:outline-none"
+              />
+              <Button
+                type="submit"
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs px-2.5 bg-surface border-brand-200 text-brand-700"
+                loading={goalSaving}
+              >
+                Set Goal
+              </Button>
+            </form>
+          ) : null}
+
+          <div className="rounded-3xl border border-line bg-surface shadow-card overflow-hidden">
+            <div className="flex items-center border-b border-line bg-canvas/40 px-3 sm:px-4">
+              <button
+                type="button"
+                onClick={() => setActiveTab('chat')}
+                className={cn(
+                  'flex items-center gap-2 border-b-2 px-3 sm:px-4 py-3 text-xs font-bold transition-colors',
+                  activeTab === 'chat'
+                    ? 'border-brand-600 text-brand-700 bg-surface/80'
+                    : 'border-transparent text-muted hover:text-ink',
+                )}
+              >
+                <MessageSquare className="size-3.5" />
+                Study Chat
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('notes')}
+                className={cn(
+                  'flex items-center gap-2 border-b-2 px-3 sm:px-4 py-3 text-xs font-bold transition-colors',
+                  activeTab === 'notes'
+                    ? 'border-brand-600 text-brand-700 bg-surface/80'
+                    : 'border-transparent text-muted hover:text-ink',
+                )}
+              >
+                <FileText className="size-3.5" />
+                Shared Notes
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('participants')}
+                className={cn(
+                  'flex items-center gap-2 border-b-2 px-3 sm:px-4 py-3 text-xs font-bold transition-colors',
+                  activeTab === 'participants'
+                    ? 'border-brand-600 text-brand-700 bg-surface/80'
+                    : 'border-transparent text-muted hover:text-ink',
+                )}
+              >
+                <Users className="size-3.5" />
+                Participants ({count})
+              </button>
             </div>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-              <span className="relative flex size-1.5" aria-hidden="true">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-70" />
-                <span className="relative inline-flex size-1.5 rounded-full bg-emerald-600" />
-              </span>
-              Live
-            </span>
+
+            <div className="p-4 sm:p-5">
+              {activeTab === 'chat' ? (
+                <RoomChat
+                  roomId={room.id}
+                  currentUser={user ? { uid: user.uid, displayName: user.displayName } : null}
+                  isMember={isMember}
+                />
+              ) : activeTab === 'notes' ? (
+                <RoomNotes
+                  roomId={room.id}
+                  currentUser={user ? { uid: user.uid, displayName: user.displayName } : null}
+                  isMember={isMember}
+                />
+              ) : (
+                <ParticipantList room={room} currentUserId={user?.uid} />
+              )}
+            </div>
           </div>
-          <div className="px-5 sm:px-6">
-            <ParticipantList room={room} currentUserId={user?.uid} />
-          </div>
-        </Card>
+        </div>
 
         <div className="space-y-4">
+          <RoomExpiryTimer
+            expiresAt={room.expiresAt}
+            createdAt={room.createdAt}
+            status={room.status}
+            onExpire={() => {
+              void refresh()
+            }}
+          />
+
           <Card className="p-5">
             <h2 className="text-base font-bold text-ink">Room details</h2>
             <dl className="mt-4 space-y-3 text-sm">
@@ -423,9 +531,9 @@ export function RoomPage() {
             </h2>
             <ul className="mt-3 space-y-2.5 text-xs leading-relaxed text-muted">
               <li>Seats are limited and enforced by server-side rules.</li>
-              <li>One membership per account, even with multiple tabs.</li>
+              <li>Live study chat and collaborative notes for everyone in the room.</li>
               <li>Closing the tab releases your seat via presence.</li>
-              <li>The room closes when the last member leaves.</li>
+              <li>The room closes automatically when the expiry timer reaches 00:00 or when all members leave.</li>
             </ul>
           </Card>
         </div>
@@ -453,7 +561,7 @@ export function RoomPage() {
       <div className="mt-8 text-center text-xs text-muted">
         <span className="inline-flex items-center gap-1.5">
           <Users className="size-3.5" aria-hidden="true" />
-          This is a presence room — there is no chat, video, or voice.
+          Live silent collaboration circle with chat, shared notes, and auto-expiry countdown.
         </span>
       </div>
     </div>

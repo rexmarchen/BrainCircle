@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, BookOpen, Clock3, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
@@ -27,6 +28,7 @@ export function RoomCard({
   joining?: boolean
   joinDisabled?: boolean
 }) {
+  const [now] = useState(() => Date.now())
   const availability = roomAvailability(room)
   const members = participantList(room)
   const count = participantCount(room)
@@ -39,6 +41,11 @@ export function RoomCard({
         <Badge variant="brand" icon={<BookOpen className="size-3.5" aria-hidden="true" />}>
           {room.subject}
         </Badge>
+        {room.expiresAt && room.status === 'open' ? (
+          <Badge variant="outline" className="text-[0.65rem] border-brand-200 text-brand-700 bg-brand-50/50">
+            ⏳ {Math.max(0, Math.ceil((room.expiresAt - now) / 60000))}m left
+          </Badge>
+        ) : null}
         <Badge
           variant={
             availability === 'open' ? 'success' : availability === 'full' ? 'warning' : 'neutral'

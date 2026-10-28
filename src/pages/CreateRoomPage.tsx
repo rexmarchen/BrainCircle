@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   BookOpen,
   CheckCircle2,
+  Clock,
   Info,
   Minus,
   Plus,
@@ -47,6 +48,7 @@ export function CreateRoomPage() {
       subject: '',
       description: '',
       maxCapacity: 6,
+      durationMinutes: 45,
     },
   })
 
@@ -232,6 +234,38 @@ export function CreateRoomPage() {
                   you. A hard limit keeps the circle focused.
                 </p>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <p className="flex items-center gap-1 text-sm font-semibold text-ink">
+                <Clock className="size-4 text-brand-600 inline mr-1" aria-hidden="true" />
+                Session duration (Room expiry countdown)
+                <span className="text-brand-600" aria-hidden="true">
+                  *
+                </span>
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {[15, 30, 45, 60, 90, 120].map((mins) => (
+                  <button
+                    key={mins}
+                    type="button"
+                    onClick={() =>
+                      setValue('durationMinutes', mins, { shouldValidate: true, shouldDirty: true })
+                    }
+                    className={cn(
+                      'rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors',
+                      values.durationMinutes === mins
+                        ? 'border-brand-300 bg-brand-50 text-brand-700 shadow-sm'
+                        : 'border-line bg-surface text-muted hover:border-brand-200 hover:text-brand-700',
+                    )}
+                  >
+                    {mins}m
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs leading-relaxed text-muted">
+                The room displays a live ticking countdown and automatically closes when the session expires.
+              </p>
             </div>
 
             <div className="flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">

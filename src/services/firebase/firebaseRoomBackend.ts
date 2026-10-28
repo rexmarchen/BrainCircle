@@ -12,6 +12,8 @@ import type {
   JoinResult,
   Room,
   RoomBackend,
+  RoomMessage,
+  RoomNotes,
   RoomWithSeats,
   SeatClaim,
 } from '@/types/room'
@@ -41,6 +43,7 @@ interface RawParticipant {
   lastSeenAt?: number
   seat?: number
   seatKey?: string
+  goal?: string
 }
 
 interface RawSeat {
@@ -58,6 +61,8 @@ interface RawRoom {
   status?: 'open' | 'closed'
   createdAt?: number
   closedAt?: number
+  durationMinutes?: number
+  expiresAt?: number
   participants?: Record<string, RawParticipant> | null
   seats?: Record<string, RawSeat> | null
 }
@@ -73,6 +78,7 @@ function normalizeRoom(id: string, raw: RawRoom): RoomWithSeats {
       lastSeenAt: Number(record.lastSeenAt ?? record.joinedAt ?? 0),
       seat: Number(record.seat ?? 0),
       seatKey: record.seatKey ?? String(record.seat ?? 0),
+      goal: typeof record.goal === 'string' ? record.goal : undefined,
     }
   }
 
@@ -93,6 +99,8 @@ function normalizeRoom(id: string, raw: RawRoom): RoomWithSeats {
     status: raw.status === 'closed' ? 'closed' : 'open',
     createdAt: Number(raw.createdAt ?? 0),
     closedAt: typeof raw.closedAt === 'number' ? raw.closedAt : undefined,
+    durationMinutes: typeof raw.durationMinutes === 'number' ? raw.durationMinutes : undefined,
+    expiresAt: typeof raw.expiresAt === 'number' ? raw.expiresAt : undefined,
     participants,
     seats,
   }
@@ -191,7 +199,7 @@ class FirebaseRoomBackend implements RoomBackend {
       const roomRef = push(ref(this.db(), 'rooms'))
       const roomId = roomRef.key
       if (!roomId) throw new RoomError('unknown', 'Could not allocate a room id.')
-      await set(roomRef, {
+      const roomPayload: Record<string, unknown> = {
         name: input.name.trim(),
         subject: input.subject.trim(),
         description: input.description.trim(),
@@ -200,7 +208,12 @@ class FirebaseRoomBackend implements RoomBackend {
         maxCapacity: input.maxCapacity,
         status: 'open',
         createdAt: serverTimestamp(),
-      })
+      }
+      if (typeof input.durationMinutes === 'number' && input.durationMinutes > 0) {
+        roomPayload.durationMinutes = input.durationMinutes
+        roomPayload.expiresAt = Date.now() + input.durationMinutes * 60 * 1000
+      }
+      await set(roomRef, roomPayload)
       try {
         await this.joinRoom(roomId, user)
       } catch (error) {
@@ -413,6 +426,72 @@ class FirebaseRoomBackend implements RoomBackend {
     } catch {
       // Presence registration is best effort; the stale-member sweep is the backup.
     }
+  }
+
+  async sendMessage(roomId: string, message: { text: string; uid: string; displayName: string }): Promise<void> {
+    const messagesRef = ref(this.db(), `room_messages/${roomId}`)
+    const newMsgRef = push(messagesRef)
+    await set(newMsgRef, {
+      uid: message.uid,
+      displayName: message.displayName,
+      text: message.text.trim(),
+      timestamp: Date.now(),
+    })
+  }
+
+  subscribeMessages(roomId: string, listener: (messages: RoomMessage[]) => void): () => void {
+    const messagesQuery = query(
+      ref(this.db(), `room_messages/${roomId}`),
+      orderByChild('timestamp'),
+      limitToLast(100),
+    )
+    return onValue(messagesQuery, (snapshot) => {
+      const data = snapshot.val() as Record<string, { uid?: string; displayName?: string; text?: string; timestamp?: number }> | null
+      if (!data) {
+        listener([])
+        return
+      }
+      const messages: RoomMessage[] = Object.entries(data)
+        .map(([id, item]) => ({
+          id,
+          uid: item.uid ?? '',
+          displayName: item.displayName ?? 'Student',
+          text: item.text ?? '',
+          timestamp: Number(item.timestamp ?? 0),
+        }))
+        .sort((a, b) => a.timestamp - b.timestamp)
+      listener(messages)
+    })
+  }
+
+  async saveNotes(roomId: string, content: string, user: { uid: string; displayName: string }): Promise<void> {
+    const notesRef = ref(this.db(), `room_notes/${roomId}`)
+    await set(notesRef, {
+      content,
+      updatedAt: Date.now(),
+      updatedBy: user.displayName,
+    })
+  }
+
+  subscribeNotes(roomId: string, listener: (notes: RoomNotes | null) => void): () => void {
+    const notesRef = ref(this.db(), `room_notes/${roomId}`)
+    return onValue(notesRef, (snapshot) => {
+      const data = snapshot.val() as { content?: string; updatedAt?: number; updatedBy?: string } | null
+      if (!data) {
+        listener(null)
+        return
+      }
+      listener({
+        content: data.content ?? '',
+        updatedAt: Number(data.updatedAt ?? 0),
+        updatedBy: data.updatedBy ?? 'Student',
+      })
+    })
+  }
+
+  async setGoal(roomId: string, uid: string, goal: string): Promise<void> {
+    const participantRef = this.participantRef(roomId, uid)
+    await update(participantRef, { goal: goal.trim() })
   }
 
   private async cancelPresence(roomId: string, uid: string) {

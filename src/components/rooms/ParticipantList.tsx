@@ -57,6 +57,12 @@ function ParticipantRow({
           </span>
           Seat {participant.seat + 1}
         </p>
+        {participant.goal ? (
+          <p className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-brand-50 px-2 py-0.5 text-[0.72rem] font-medium text-brand-800">
+            <span>🎯</span>
+            <span className="max-w-[280px] truncate">{participant.goal}</span>
+          </p>
+        ) : null}
       </div>
     </li>
   )

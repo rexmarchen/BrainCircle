@@ -48,15 +48,21 @@
         "maxCapacity": {
           ".validate": "newData.isNumber() && newData.val() >= 2 && newData.val() <= 20 && newData.val() % 1 === 0"
         },
+        "durationMinutes": {
+          ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 480"
+        },
+        "expiresAt": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
         "createdAt": {
           ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 60000"
         },
         "status": {
-          ".write": "auth != null && newData.val() === 'closed' && !root.child('rooms').child($roomId).child('participants').exists()",
+          ".write": "auth != null && newData.val() === 'closed' && (!root.child('rooms').child($roomId).child('participants').exists() || (data.parent().child('expiresAt').exists() && now >= data.parent().child('expiresAt').val()))",
           ".validate": "newData.val() === 'open' || newData.val() === 'closed'"
         },
         "closedAt": {
-          ".write": "auth != null && !root.child('rooms').child($roomId).child('participants').exists() && newData.parent().child('status').val() === 'closed'",
+          ".write": "auth != null && (!root.child('rooms').child($roomId).child('participants').exists() || (data.parent().child('expiresAt').exists() && now >= data.parent().child('expiresAt').val())) && newData.parent().child('status').val() === 'closed'",
           ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 60000"
         },
         "participants": {
@@ -68,6 +74,9 @@
             },
             "displayName": {
               ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 40"
+            },
+            "goal": {
+              ".validate": "newData.isString() && newData.val().length <= 140"
             },
             "joinedAt": {
               ".validate": "newData.isNumber()"
@@ -100,6 +109,49 @@
               ".validate": false
             }
           }
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "room_messages": {
+      "$roomId": {
+        ".read": "auth != null",
+        "$messageId": {
+          ".write": "auth != null && !data.exists() && newData.child('uid').val() === auth.uid && root.child('rooms').child($roomId).child('status').val() === 'open'",
+          ".validate": "newData.hasChildren(['uid', 'displayName', 'text', 'timestamp'])",
+          "uid": {
+            ".validate": "newData.isString()"
+          },
+          "displayName": {
+            ".validate": "newData.isString()"
+          },
+          "text": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 1000"
+          },
+          "timestamp": {
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "room_notes": {
+      "$roomId": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('rooms').child($roomId).child('status').val() === 'open'",
+        ".validate": "newData.hasChildren(['content', 'updatedAt', 'updatedBy'])",
+        "content": {
+          ".validate": "newData.isString() && newData.val().length <= 10000"
+        },
+        "updatedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "updatedBy": {
+          ".validate": "newData.isString()"
         },
         "$other": {
           ".validate": false

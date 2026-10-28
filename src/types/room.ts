@@ -12,6 +12,8 @@ export interface RoomParticipant {
   seat: number
   /** String form of the seat index used by security rules to look up the seat claim. */
   seatKey: string
+  /** Optional current study focus / goal of this member */
+  goal?: string
 }
 
 /** A capacity token at `rooms/{roomId}/seats/{seatIndex}`. */
@@ -19,6 +21,20 @@ export interface SeatClaim {
   uid: string
   /** Claim time (ms). A claim without a participant is reclaimable after a short TTL. */
   claimedAt: number
+}
+
+export interface RoomMessage {
+  id: string
+  uid: string
+  displayName: string
+  text: string
+  timestamp: number
+}
+
+export interface RoomNotes {
+  content: string
+  updatedAt: number
+  updatedBy: string
 }
 
 export interface Room {
@@ -32,6 +48,8 @@ export interface Room {
   status: RoomStatus
   createdAt: number
   closedAt?: number
+  durationMinutes?: number
+  expiresAt?: number
   participants: Record<string, RoomParticipant>
 }
 
@@ -40,6 +58,7 @@ export interface CreateRoomInput {
   subject: string
   description: string
   maxCapacity: number
+  durationMinutes?: number
 }
 
 export type JoinResult = {
@@ -77,4 +96,9 @@ export interface RoomBackend {
   /** Releases stale seats, stale members, and closes long-empty rooms. */
   pruneRoom(roomId: string): Promise<void>
   subscribeConnection(listener: (online: boolean) => void): () => void
+  sendMessage(roomId: string, message: { text: string; uid: string; displayName: string }): Promise<void>
+  subscribeMessages(roomId: string, listener: (messages: RoomMessage[]) => void): () => void
+  saveNotes(roomId: string, content: string, user: { uid: string; displayName: string }): Promise<void>
+  subscribeNotes(roomId: string, listener: (notes: RoomNotes | null) => void): () => void
+  setGoal(roomId: string, uid: string, goal: string): Promise<void>
 }

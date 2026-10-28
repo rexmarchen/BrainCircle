@@ -63,6 +63,12 @@ export const roomSchema = z.object({
     .int('Capacity must be a whole number')
     .min(ROOM_LIMITS.minCapacity, `Capacity must be at least ${ROOM_LIMITS.minCapacity}`)
     .max(ROOM_LIMITS.maxCapacity, `Capacity cannot exceed ${ROOM_LIMITS.maxCapacity}`),
+  durationMinutes: z
+    .number()
+    .int()
+    .min(5, 'Minimum session length is 5 minutes')
+    .max(240, 'Maximum session length is 4 hours')
+    .optional(),
 })
 
 export type SignInValues = z.infer<typeof signInSchema>
