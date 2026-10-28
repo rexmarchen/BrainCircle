@@ -1,0 +1,159 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans:
+    'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', sans-serif;
+
+  --color-canvas: #fafafc;
+  --color-canvas-deep: #f4f4f9;
+  --color-surface: #ffffff;
+  --color-ink: #12172b;
+  --color-ink-soft: #3f4660;
+  --color-muted: #667085;
+  --color-line: #e6e6ef;
+  --color-line-strong: #d5d5e3;
+
+  --color-brand-50: #eef1ff;
+  --color-brand-100: #e0e5ff;
+  --color-brand-200: #c7ceff;
+  --color-brand-300: #a5adff;
+  --color-brand-400: #8383fb;
+  --color-brand-500: #6b5cf2;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #2b2a72;
+
+  --color-violet-accent: #7c3aed;
+  --color-cyan-accent: #0891b2;
+
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 12px 32px -16px rgb(16 24 40 / 0.18);
+  --shadow-card-hover: 0 2px 4px rgb(16 24 40 / 0.05), 0 22px 44px -20px rgb(37 32 110 / 0.28);
+  --shadow-pop: 0 24px 64px -20px rgb(16 24 40 / 0.28);
+
+  --radius-4xl: 2rem;
+
+  --animate-shimmer: shimmer 1.8s ease-in-out infinite;
+  --animate-rise: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pop: pop 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  @keyframes shimmer {
+    0% {
+      background-position: -400px 0;
+    }
+    100% {
+      background-position: 400px 0;
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.97) translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-canvas text-ink antialiased;
+    font-feature-settings: 'ss01' 1, 'cv11' 1;
+  }
+
+  ::selection {
+    background: var(--color-brand-200);
+    color: var(--color-brand-900);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .container-page {
+    width: 100%;
+    max-width: 76rem;
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+  }
+
+  @media (min-width: 640px) {
+    .container-page {
+      padding-inline: 2rem;
+    }
+  }
+
+  .skeleton {
+    background-color: var(--color-line);
+    background-image: linear-gradient(
+      90deg,
+      rgb(230 230 239 / 0.6) 0px,
+      rgb(246 246 251 / 0.9) 40px,
+      rgb(230 230 239 / 0.6) 80px
+    );
+    background-size: 400px 100%;
+    background-repeat: no-repeat;
+    animation: var(--animate-shimmer);
+  }
+
+  .grid-lines {
+    background-image:
+      linear-gradient(to right, rgb(18 23 43 / 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(18 23 43 / 0.045) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black 30%, transparent 78%);
+  }
+
+  .text-gradient {
+    background: linear-gradient(100deg, var(--color-brand-700), var(--color-violet-accent) 62%, var(--color-brand-600));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}

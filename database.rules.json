@@ -1,0 +1,110 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['displayName', 'email', 'createdAt'])",
+        "displayName": {
+          ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 40"
+        },
+        "email": {
+          ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 254"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "updatedAt": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "rooms": {
+      ".read": true,
+      ".indexOn": ["createdAt"],
+      "$roomId": {
+        ".write": "auth != null && !data.exists() && newData.child('creatorId').val() === auth.uid && newData.child('status').val() === 'open' && !newData.child('participants').exists() && !newData.child('seats').exists()",
+        ".validate": "newData.hasChildren(['name', 'subject', 'description', 'creatorId', 'creatorName', 'maxCapacity', 'status', 'createdAt']) && newData.child('creatorId').isString() && (newData.child('status').val() === 'open' || newData.child('status').val() === 'closed')",
+        "name": {
+          ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 60"
+        },
+        "subject": {
+          ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 40"
+        },
+        "description": {
+          ".validate": "newData.isString() && newData.val().length <= 280"
+        },
+        "creatorId": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "creatorName": {
+          ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 40"
+        },
+        "maxCapacity": {
+          ".validate": "newData.isNumber() && newData.val() >= 2 && newData.val() <= 20 && newData.val() % 1 === 0"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 60000"
+        },
+        "status": {
+          ".write": "auth != null && newData.val() === 'closed' && !root.child('rooms').child($roomId).child('participants').exists()",
+          ".validate": "newData.val() === 'open' || newData.val() === 'closed'"
+        },
+        "closedAt": {
+          ".write": "auth != null && !root.child('rooms').child($roomId).child('participants').exists() && newData.parent().child('status').val() === 'closed'",
+          ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 60000"
+        },
+        "participants": {
+          "$uid": {
+            ".write": "auth != null && ((auth.uid === $uid && data.exists()) || (auth.uid === $uid && !data.exists() && newData.exists() && root.child('rooms').child($roomId).child('status').val() === 'open' && root.child('rooms').child($roomId).child('seats').child(newData.child('seatKey').val()).child('uid').val() === auth.uid) || (!newData.exists() && data.exists() && now - data.child('lastSeenAt').val() > 300000))",
+            ".validate": "newData.hasChildren(['uid', 'displayName', 'joinedAt', 'lastSeenAt', 'seat', 'seatKey']) && newData.child('uid').val() === auth.uid && newData.child('displayName').isString() && newData.child('displayName').val().length >= 2 && newData.child('displayName').val().length <= 40 && newData.child('joinedAt').isNumber() && newData.child('joinedAt').val() > 0 && newData.child('joinedAt').val() <= now + 60000 && newData.child('lastSeenAt').isNumber() && newData.child('lastSeenAt').val() > 0 && newData.child('lastSeenAt').val() <= now + 60000 && newData.child('seat').isNumber() && newData.child('seat').val() >= 0 && newData.child('seat').val() <= 19 && newData.child('seat').val() % 1 === 0 && newData.child('seatKey').isString() && newData.child('seatKey').val().matches(/^[0-9]{1,2}$/) && root.child('rooms').child($roomId).child('seats').child(newData.child('seatKey').val()).child('uid').val() === auth.uid && (!data.exists() || newData.child('seatKey').val() === data.child('seatKey').val())",
+            "uid": {
+              ".validate": "newData.isString()"
+            },
+            "displayName": {
+              ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 40"
+            },
+            "joinedAt": {
+              ".validate": "newData.isNumber()"
+            },
+            "lastSeenAt": {
+              ".validate": "newData.isNumber()"
+            },
+            "seat": {
+              ".validate": "newData.isNumber()"
+            },
+            "seatKey": {
+              ".validate": "newData.isString()"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "seats": {
+          "$seatIndex": {
+            ".write": "auth != null && root.child('rooms').child($roomId).child('status').val() === 'open' && ((!data.exists() && newData.exists() && newData.child('uid').val() === auth.uid && newData.child('claimedAt').isNumber() && (($seatIndex === '0' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 1) || ($seatIndex === '1' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 2) || ($seatIndex === '2' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 3) || ($seatIndex === '3' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 4) || ($seatIndex === '4' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 5) || ($seatIndex === '5' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 6) || ($seatIndex === '6' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 7) || ($seatIndex === '7' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 8) || ($seatIndex === '8' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 9) || ($seatIndex === '9' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 10) || ($seatIndex === '10' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 11) || ($seatIndex === '11' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 12) || ($seatIndex === '12' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 13) || ($seatIndex === '13' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 14) || ($seatIndex === '14' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 15) || ($seatIndex === '15' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 16) || ($seatIndex === '16' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 17) || ($seatIndex === '17' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 18) || ($seatIndex === '18' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 19) || ($seatIndex === '19' && root.child('rooms').child($roomId).child('maxCapacity').val() >= 20))) || (data.exists() && !newData.exists() && ((data.child('uid').val() === auth.uid && !root.child('rooms').child($roomId).child('participants').child(data.child('uid').val()).exists()) || (!root.child('rooms').child($roomId).child('participants').child(data.child('uid').val()).exists() && now - data.child('claimedAt').val() > 45000) || (root.child('rooms').child($roomId).child('participants').child(data.child('uid').val()).exists() && now - root.child('rooms').child($roomId).child('participants').child(data.child('uid').val()).child('lastSeenAt').val() > 300000))))",
+            ".validate": "newData.hasChildren(['uid', 'claimedAt']) && newData.child('uid').isString() && newData.child('uid').val() === auth.uid && newData.child('claimedAt').isNumber() && newData.child('claimedAt').val() > 0 && newData.child('claimedAt').val() <= now + 60000",
+            "uid": {
+              ".validate": "newData.isString()"
+            },
+            "claimedAt": {
+              ".validate": "newData.isNumber()"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    }
+  }
+}

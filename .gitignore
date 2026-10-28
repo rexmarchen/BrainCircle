@@ -7,7 +7,11 @@ dist-ssr/
 
 # Environment files
 .env
-.env*.local
+.env.*
+!.env.example
+
+# Local Firebase project selection (copy .firebaserc.example)
+.firebaserc
 
 # Logs
 npm-debug.log*
@@ -19,3 +23,17 @@ yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Firebase emulator and credentials
+.firebase/
+*-firebase-adminsdk-*.json
+serviceAccount*.json
+firebase-debug.log
+database-debug.log
+ui-debug.log
+firestore-debug.log
+pubsub-debug.log
+
+# Tests and logs
+coverage/
+*.log
